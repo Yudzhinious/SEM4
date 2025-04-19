@@ -32,3 +32,16 @@ class TruthTable(LogicalOperations):
 
     def get_table(self) -> list:
         return self.table
+        
+    def priority(self, op):
+        if op == '!':
+            return 5
+        if op == '&':
+            return 4
+        if op == '|':
+            return 3
+        if op == '>':
+            return 2
+        if op == '~':
+            return 1
+        return 0
