@@ -8,9 +8,6 @@ class KarnoSDNF(LogicalOperations):
         self.order = [0, 1, 3, 2]
 
     def karno_sdnf(self) -> str:
-        if self.var_count not in [5, 6]:
-            return "Метод работает только с 5 или 6 переменными."
-
         print(f"\nСокращаем СДНФ с помощью карты Карно ({self.var_count} переменных):")
         zeros = []
         if self.var_count == 5:
