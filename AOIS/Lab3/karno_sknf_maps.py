@@ -9,9 +9,6 @@ class KarnoSKNF(LogicalOperations):
         self.order = [0, 1, 3, 2]
 
     def karno_sknf(self, verbose=True) -> str:
-        if self.var_count not in [5, 6]:
-            return "Этот метод не поддерживает такое количество переменных."
-
         if verbose:
             print(f"\nСокращаем СКНФ с помощью карты Карно ({self.var_count} переменных):")
 
