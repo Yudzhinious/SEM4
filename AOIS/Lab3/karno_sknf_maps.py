@@ -1,426 +1,338 @@
 from logical_operations import *
 
 class KarnoSKNF(LogicalOperations):
-    def __init__(self, inputs: list, labels: list):
+    def __init__(self, inputs, labels):
         super().__init__()
         self.inputs = inputs
         self.labels = labels
         self.var_count = len(labels)
         self.order = [0, 1, 3, 2]
 
-    def karno_sknf(self, verbose=True) -> str:
-        if verbose:
-            print(f"\nСокращаем СКНФ с помощью карты Карно ({self.var_count} переменных):")
-
+    def make_map_5(self):
+        grid = [[[0] * 4 for _ in range(4)] for _ in range(2)]
         zeros = []
-        if self.var_count == 5:
-            grid = [[[0 for _ in range(4)] for _ in range(4)] for _ in range(2)]
-            for idx, entry in enumerate(self.inputs):
-                q, r, s, t, p = entry[0]
-                block = p
-                row = self.order.index((q << 1) | r)
-                col = self.order.index((s << 1) | t)
-                grid[block][row][col] = entry[1]
-                if entry[1] == 0:
-                    zeros.append((q, r, s, t, p))
+        for row in self.inputs:
+            q, r, s, t, p = row[0]
+            block = p
+            row_i = self.order.index((q << 1) | r)
+            col_i = self.order.index((s << 1) | t)
+            grid[block][row_i][col_i] = row[1]
+            if row[1] == 0:
+                zeros.append((q, r, s, t, p))
+        return grid, zeros
 
-            if verbose:
-                print("Карта Карно:")
-                print("ab\\cde   000  001  011  010   110  111  101  100")
-                for row_idx in range(4):
-                    row_label = format(self.order[row_idx], '02b')
-                    line = f"{row_label}       "
-                    block_0 = [str(grid[0][row_idx][c]) for c in range(4)]
-                    block_1 = [str(grid[1][row_idx][c]) for c in range(4)]
-                    line += "  ".join(f"{val:>3}" for val in block_0)
-                    line += "  "
-                    line += "  ".join(f"{val:>3}" for val in block_1)
-                    print(line)
+    def make_map_6(self):
+        grid = [[[[0] * 4 for _ in range(4)] for _ in range(4)] for _ in range(4)]
+        zeros = []
+        for row in self.inputs:
+            q, r, s, t, o, p = row[0]
+            block_i = self.order.index((o << 1) | p)
+            row_i = self.order.index((q << 1) | r)
+            col_i = self.order.index((s << 1) | t)
+            grid[block_i][row_i][col_i] = row[1]
+            if row[1] == 0:
+                zeros.append((q, r, s, t, o, p))
+        return grid, zeros
 
-        else:
-            grid = [[[[0 for _ in range(4)] for _ in range(4)] for _ in range(4)] for _ in range(4)]
-            for idx, entry in enumerate(self.inputs):
-                q, r, s, t, o, p = entry[0]
-                block_o = self.order.index((o << 1) | p)
-                row = self.order.index((q << 1) | r)
-                col = self.order.index((s << 1) | t)
-                grid[block_o][row][col] = entry[1]
-                if entry[1] == 0:
-                    zeros.append((q, r, s, t, o, p))
+    def show_map_5(self, grid):
+        print("Карта Карно:")
+        print("ab\\cde   000  001  011  010   110  111  101  100")
+        for r in range(4):
+            label = format(self.order[r], '02b')
+            line = f"{label}       "
+            part1 = [str(grid[0][r][c]) for c in range(4)]
+            part2 = [str(grid[1][r][c]) for c in range(4)]
+            line += "  ".join(f"{v:>3}" for v in part1) + "  " + "  ".join(f"{v:>3}" for v in part2)
+            print(line)
 
-            if verbose:
-                print("Карта Карно:")
-                print("ef ab\\cd   0000  0001  0011  0010   0100  0101  0111  0110   1100  1101  1111  1110   1000  1001  1011  1010")
-                for row_idx in range(4):
-                    row_label = format(self.order[row_idx], '02b')
-                    line = f"  {row_label}       "
-                    for block_idx in range(4):
-                        block_vals = [str(grid[block_idx][row_idx][c]) for c in range(4)]
-                        line += "  ".join(f"{val:>3}" for val in block_vals)
-                        line += "  "
-                    print(line)
+    def show_map_6(self, grid):
+        print("Карта Карно:")
+        print("ef ab\\cd   0000  0001  0011  0010   0100  0101  0111  0110   1100  1101  1111  1110   1000  1001  1011  1010")
+        for r in range(4):
+            label = format(self.order[r], '02b')
+            line = f"  {label}       "
+            for b in range(4):
+                vals = [str(grid[b][r][c]) for c in range(4)]
+                line += "  ".join(f"{v:>3}" for v in vals) + "  "
+            print(line)
 
-        if not zeros:
-            return "1"
+    def get_cells_5_6(self, grid, b_start, b_size, r_start, r_size, c_start, c_size, b_max, r_max, c_max):
+        cells = set()
+        all_zeros = True
+        for db in range(b_size):
+            b = (b_start + db) % b_max
+            for dr in range(r_size):
+                r = (r_start + dr) % r_max
+                for dc in range(c_size):
+                    c = (c_start + dc) % c_max
+                    cells.add((b, r, c))
+                    if grid[b][r][c] == 1:
+                        all_zeros = False
+                        break
+                if not all_zeros:
+                    break
+            if not all_zeros:
+                break
+        return cells, all_zeros
 
-        blocks = 2 if self.var_count == 5 else 4
-        row_count = 4
-        col_count = 4
+    def make_pattern_5_6(self, cells):
+        pattern = ['-'] * self.var_count
+        values = []
+        for b, r, c in cells:
+            qr = self.order[r]
+            st = self.order[c]
+            q = (qr >> 1) & 1
+            r_val = qr & 1
+            s = (st >> 1) & 1
+            t = st & 1
+            if self.var_count == 5:
+                p = b
+                values.append([q, r_val, s, t, p])
+            else:
+                op = self.order[b]
+                o = (op >> 1) & 1
+                p = op & 1
+                values.append([q, r_val, s, t, o, p])
+        for i in range(self.var_count):
+            unique_vals = {val[i] for val in values}
+            if len(unique_vals) == 1:
+                pattern[i] = str(unique_vals.pop())
+        return pattern
 
-        found_groups = []
-        for block_size in [1, 2, 4][:blocks + 1]:
-            for block_start in range(blocks):
-                if block_size > 1 and block_start != 0:
+    def find_groups_5_6(self, grid, b_max):
+        groups = []
+        for b_size in [1, 2, 4][:b_max + 1]:
+            for b_start in range(b_max):
+                if b_size > 1 and b_start != 0:
                     continue
-                for row_size in [1, 2, 4]:
-                    for col_size in [1, 2, 4]:
-                        for row_start in range(row_count):
-                            for col_start in range(col_count):
-                                cells = set()
-                                has_only_zeros = True
-                                for db in range(block_size):
-                                    b = (block_start + db) % blocks
-                                    for dr in range(row_size):
-                                        r = (row_start + dr) % row_count
-                                        for dc in range(col_size):
-                                            c = (col_start + dc) % col_count
-                                            cells.add((b, r, c))
-                                            val = grid[b][r][c] if self.var_count == 5 else grid[b][r][c]
-                                            if val == 1:
-                                                has_only_zeros = False
-                                                break
-                                        if not has_only_zeros:
-                                            break
-                                    if not has_only_zeros:
-                                        break
-                                if has_only_zeros and cells:
-                                    mask = ['-' for _ in range(self.var_count)]
-                                    cell_data = []
-                                    for b, r, c in cells:
-                                        qr = self.order[r]
-                                        st = self.order[c]
-                                        q = (qr >> 1) & 1
-                                        r_val = qr & 1
-                                        s = (st >> 1) & 1
-                                        t = st & 1
-                                        if self.var_count == 5:
-                                            p = b
-                                            cell_data.append([q, r_val, s, t, p])
-                                        else:
-                                            op = self.order[b]
-                                            o = (op >> 1) & 1
-                                            p = op & 1
-                                            cell_data.append([q, r_val, s, t, o, p])
-                                    for var_pos in range(self.var_count):
-                                        var_values = set(data[var_pos] for data in cell_data)
-                                        if len(var_values) == 1:
-                                            mask[var_pos] = str(var_values.pop())
-                                    found_groups.append((cells, mask))
+                for r_size in [1, 2, 4]:
+                    for c_size in [1, 2, 4]:
+                                cells, all_zeros = self.get_cells_5_6(grid, b_start, b_size, r_start, r_size, c_start, c_size, b_max, 4, 4)
+                                if all_zeros and cells:
+                                    pattern = self.make_pattern_5_6(cells)
+                                    groups.append((cells, pattern))
+        return groups
 
-        largest_groups = []
-        for idx_1, (cells_1, mask_1) in enumerate(found_groups):
+    def get_biggest_groups(self, groups):
+        biggest = []
+        for i, (cells_i, pat_i) in enumerate(groups):
             is_biggest = True
-            for idx_2, (cells_2, mask_2) in enumerate(found_groups):
-                if idx_1 != idx_2 and cells_1.issubset(cells_2) and cells_1 != cells_2:
+            for j, (cells_j, pat_j) in enumerate(groups):
+                if i != j and cells_i <= cells_j and cells_i != cells_j:
                     is_biggest = False
                     break
             if is_biggest:
-                largest_groups.append((cells_1, mask_1))
+                biggest.append((cells_i, pat_i))
+        return biggest
 
-        zero_coords = []
-        for point in zeros:
+    def get_zeros_pos_5_6(self, zeros):
+        positions = []
+        for p in zeros:
             if self.var_count == 5:
-                q, r, s, t, p = point
-                zero_coords.append((p, self.order.index((q << 1) | r), self.order.index((s << 1) | t)))
+                q, r, s, t, p = p
+                positions.append((p, self.order.index((q << 1) | r), self.order.index((s << 1) | t)))
             else:
-                q, r, s, t, o, p = point
-                zero_coords.append(
-                    (self.order.index((o << 1) | p), self.order.index((q << 1) | r), self.order.index((s << 1) | t)))
+                q, r, s, t, o, p = p
+                positions.append((self.order.index((o << 1) | p), self.order.index((q << 1) | r), self.order.index((s << 1) | t)))
+        return positions
 
-        selected_groups = []
-        remaining_zeros = set(range(len(zero_coords)))
-
-        for zero_idx, coord in enumerate(zero_coords):
-            matches = []
-            for group_idx, (cells, _) in enumerate(largest_groups):
-                if coord in cells:
-                    matches.append(group_idx)
-            if len(matches) == 1:
-                group_idx = matches[0]
-                if group_idx not in selected_groups:
-                    selected_groups.append(group_idx)
-                    for z_idx, z_coord in enumerate(zero_coords):
-                        if z_coord in largest_groups[group_idx][0]:
-                            remaining_zeros.discard(z_idx)
-
-        while remaining_zeros:
-            best_group = None
-            best_matches = set()
-            for group_idx, (cells, _) in enumerate(largest_groups):
-                if group_idx in selected_groups:
+    def choose_groups(self, big_groups, zeros_pos, verbose):
+        chosen = []
+        to_cover = set(range(len(zeros_pos)))
+        for i, pos in enumerate(zeros_pos):
+            covers = [idx for idx, (cells, _) in enumerate(big_groups) if pos in cells]
+            if len(covers) == 1:
+                idx = covers[0]
+                if idx not in chosen:
+                    chosen.append(idx)
+                    for j, other_pos in enumerate(zeros_pos):
+                        if other_pos in big_groups[idx][0]:
+                            to_cover.discard(j)
+        while to_cover:
+            best_idx = None
+            best_covered = set()
+            for idx, (cells, _) in enumerate(big_groups):
+                if idx in chosen:
                     continue
-                matches = set()
-                for z_idx in remaining_zeros:
-                    if zero_coords[z_idx] in cells:
-                        matches.add(z_idx)
-                if len(matches) > len(best_matches):
-                    best_matches = matches
-                    best_group = group_idx
-            if best_group is None:
+                covered = {j for j in to_cover if zeros_pos[j] in cells}
+                if len(covered) > len(best_covered):
+                    best_covered = covered
+                    best_idx = idx
+            if best_idx is None:
                 if verbose:
                     print("Не удалось покрыть все нули!")
                 break
-            selected_groups.append(best_group)
-            remaining_zeros -= best_matches
+            chosen.append(best_idx)
+            to_cover -= best_covered
+        return chosen
 
-        expression_parts = set()
-        for group_idx in selected_groups:
-            _, mask = largest_groups[group_idx]
-            term_parts = []
-            for idx, val in enumerate(mask):
+    def make_result(self, chosen, big_groups):
+        terms = set()
+        for idx in chosen:
+            pattern = big_groups[idx][1]
+            term = []
+            for i, val in enumerate(pattern):
                 if val == '0':
-                    term_parts.append(self.labels[idx])
+                    term.append(self.labels[i])
                 elif val == '1':
-                    term_parts.append(f'!{self.labels[idx]}')
-            if term_parts:
-                if len(term_parts) == 1:
-                    expression_parts.add(term_parts[0])
-                else:
-                    expression_parts.add('(' + ' ∨ '.join(sorted(term_parts)) + ')')
+                    term.append(f'!{self.labels[i]}')
+            if term:
+                term_str = term[0] if len(term) == 1 else '(' + ' ∨ '.join(sorted(term)) + ')'
+                terms.add(term_str)
+        terms = sorted(terms)
+        result = "1" if not terms else " ∧ ".join(terms)
+        return result
 
-        final_expression = ""
-        parts_list = sorted(list(expression_parts))
-        if len(parts_list) == 0:
-            final_expression = "1"
-        else:
-            for i in range(len(parts_list)):
-                final_expression += parts_list[i]
-                if i < len(parts_list) - 1:
-                    final_expression += " ∧ "
-        return final_expression
-
-    def karno_1_to_4_sknf(self, verbose=True) -> str:
-        num_vars = len(self.labels)
-        if num_vars not in [1, 2, 3, 4]:
-            return "Этот метод работает только для 1–4 переменных."
-
+    def karno_sknf(self, verbose=True):
+        if self.var_count not in [5, 6]:
+            return "Этот метод не поддерживает такое количество переменных."
         if verbose:
-            print(f"\nУпрощаем СКНФ через карту Карно ({num_vars} переменных):")
-        orders = self.order
+            print(f"\nСокращаем СКНФ с помощью карты Карно ({self.var_count} переменных):")
+        if self.var_count == 5:
+            grid, zeros = self.make_map_5()
+            if verbose:
+                self.show_map_5(grid)
+            b_max = 2
+        else:
+            grid, zeros = self.make_map_6()
+            if verbose:
+                self.show_map_6(grid)
+            b_max = 4
+        if not zeros:
+            return "1"
+        groups = self.find_groups_5_6(grid, b_max)
+        big_groups = self.get_biggest_groups(groups)
+        zeros_pos = self.get_zeros_pos_5_6(zeros)
+        chosen = self.choose_groups(big_groups, zeros_pos, verbose)
+        return self.make_result(chosen, big_groups)
+
+    def make_map_1_to_4(self):
         zeros = []
-        if num_vars == 1:
-            k_map = [0] * 2
-            for i, row in enumerate(self.inputs):
-                x = row[0][0]
-                k_map[x] = row[1]
+        if self.var_count == 1:
+            grid = [0] * 2
+            for row in self.inputs:
+                x, = row[0]
+                grid[x] = row[1]
                 if row[1] == 0:
                     zeros.append((x,))
-
-            if verbose:
-                print("Карта Карно:")
-                print("a    0  1")
-                print("     " + "  ".join(f"{k_map[i]:>1}" for i in range(2)))
-
-            if not zeros:
-                return "1"
-
-        elif num_vars == 2:
-            k_map = [[0] * 2 for _ in range(2)]
-            for i, row in enumerate(self.inputs):
+        elif self.var_count == 2:
+            grid = [[0] * 2 for _ in range(2)]
+            for row in self.inputs:
                 x, y = row[0]
-                k_map[x][y] = row[1]
+                grid[x][y] = row[1]
                 if row[1] == 0:
                     zeros.append((x, y))
-
-            if verbose:
-                print("Карта Карно:")
-                print("a\\b   0  1")
-                for i in range(2):
-                    print(f"{i}     " + "  ".join(f"{k_map[i][j]:>1}" for j in range(2)))
-
-            if not zeros:
-                return "1"
-
-        elif num_vars == 3:
-            k_map = [[0] * 4 for _ in range(2)]
-            for i, row in enumerate(self.inputs):
+        elif self.var_count == 3:
+            grid = [[0] * 4 for _ in range(2)]
+            for row in self.inputs:
                 x, y, z = row[0]
-                row_idx = x
-                col_idx = orders.index((y << 1) | z)
-                k_map[row_idx][col_idx] = row[1]
+                grid[x][self.order.index((y << 1) | z)] = row[1]
                 if row[1] == 0:
                     zeros.append((x, y, z))
-
-            if verbose:
-                print("Карта Карно:")
-                print("a\\bc   00  01  11  10")
-                for i in range(2):
-                    print(f"{i}     " + "  ".join(f"{k_map[i][j]:>3}" for j in range(4)))
-
-            if not zeros:
-                return "1"
-
         else:
-            k_map = [[0] * 4 for _ in range(4)]
-            for i, row in enumerate(self.inputs):
+            grid = [[0] * 4 for _ in range(4)]
+            for row in self.inputs:
                 x, y, z, w = row[0]
-                row_idx = orders.index((x << 1) | y)
-                col_idx = orders.index((z << 1) | w)
-                k_map[row_idx][col_idx] = row[1]
+                grid[self.order.index((x << 1) | y)][self.order.index((z << 1) | w)] = row[1]
                 if row[1] == 0:
                     zeros.append((x, y, z, w))
+        return grid, zeros
 
-            if verbose:
-                print("Карта Карно:")
-                print("ab\\cd   00  01  11  10")
-                for i in range(4):
-                    row_label = format(orders[i], '02b')
-                    print(f"{row_label}     " + "  ".join(f"{k_map[i][j]:>3}" for j in range(4)))
-
-            if not zeros:
-                return "1"
-
-        if num_vars == 1:
-            rows = 1
-        elif num_vars == 2 or num_vars == 3:
-            rows = 2
+    def show_map_1_to_4(self, grid):
+        print("Карта Карно:")
+        if self.var_count == 1:
+            print("a    0  1")
+            print("     " + "  ".join(str(grid[i]) for i in range(2)))
+        elif self.var_count == 2:
+            print("a\\b   0  1")
+            for r in range(2):
+                print(f"{r}     " + "  ".join(str(grid[r][c]) for c in range(2)))
+        elif self.var_count == 3:
+            print("a\\bc   00  01  11  10")
+            for r in range(2):
+                print(f"{r}     " + "  ".join(f"{grid[r][c]:>3}" for c in range(4)))
         else:
-            rows = 4
+            print("ab\\cd   00  01  11  10")
+            for r in range(4):
+                label = format(self.order[r], '02b')
+                print(f"{label}     " + "  ".join(f"{grid[r][c]:>3}" for c in range(4)))
 
-        if num_vars == 1 or num_vars == 2:
-            cols = 2
-        else:
-            cols = 4
-
-        group_list = []
-
-        if rows <= 2:
-            possible_heights = [1, 2]
-        else:
-            possible_heights = [1, 2, 4]
-
-        if cols == 2:
-            possible_widths = [1, 2]
-        else:
-            possible_widths = [1, 2, 4]
-
-        for height in possible_heights:
-            for width in possible_widths:
-                for start_row in range(rows):
-                    for start_col in range(cols):
-                        group_cells = set()
-                        all_zeros = True
-                        for r in range(height):
-                            for c in range(width):
-                                row = (start_row + r) % rows
-                                col = (start_col + c) % cols
-                                group_cells.add((row, col))
-                                if k_map[row][col] == 1:
-                                    all_zeros = False
-                                    break
-                            if not all_zeros:
-                                break
-                        if all_zeros and group_cells:
-                            pattern = ['-' for _ in range(num_vars)]
-                            cell_values = []
-                            for r, c in group_cells:
-                                if num_vars == 1:
-                                    cell_values.append([c])
-                                elif num_vars == 2:
-                                    cell_values.append([r, c])
-                                elif num_vars == 3:
-                                    yz = orders[c]
-                                    cell_values.append([r, (yz >> 1) & 1, yz & 1])
-                                else:
-                                    xy = orders[r]
-                                    zw = orders[c]
-                                    cell_values.append([(xy >> 1) & 1, xy & 1, (zw >> 1) & 1, zw & 1])
-                            for var_idx in range(num_vars):
-                                var_vals = {val[var_idx] for val in cell_values}
-                                if len(var_vals) == 1:
-                                    pattern[var_idx] = str(next(iter(var_vals)))
-                            group_list.append((group_cells, pattern))
-
-        best_groups = []
-        for i, (cells_1, pat_1) in enumerate(group_list):
-            is_largest = True
-            for j, (cells_2, pat_2) in enumerate(group_list):
-                if i != j and cells_1.issubset(cells_2) and cells_1 != cells_2:
-                    is_largest = False
+    def get_cells_1_to_4(self, grid, r_start, r_size, c_start, c_size, r_max, c_max):
+        cells = set()
+        all_zeros = True
+        for dr in range(r_size):
+            r = (r_start + dr) % r_max
+            for dc in range(c_size):
+                c = (c_start + dc) % c_max
+                cells.add((r, c))
+                val = grid[c] if self.var_count == 1 else grid[r][c]
+                if val == 1:
+                    all_zeros = False
                     break
-            if is_largest:
-                best_groups.append((cells_1, pat_1))
-
-        zero_positions = []
-        for zero in zeros:
-            if num_vars == 1:
-                zero_positions.append((0, zero[0]))
-            elif num_vars == 2:
-                zero_positions.append((zero[0], zero[1]))
-            elif num_vars == 3:
-                zero_positions.append((zero[0], orders.index((zero[1] << 1) | zero[2])))
-            else:
-                zero_positions.append(
-                    (orders.index((zero[0] << 1) | zero[1]), orders.index((zero[2] << 1) | zero[3])))
-
-        chosen_groups = []
-        zeros_to_cover = set(range(len(zero_positions)))
-
-        for zero_idx, zero_pos in enumerate(zero_positions):
-            covering_groups = []
-            for group_idx, (group_cells, _) in enumerate(best_groups):
-                if zero_pos in group_cells:
-                    covering_groups.append(group_idx)
-            if len(covering_groups) == 1:
-                group_idx = covering_groups[0]
-                if group_idx not in chosen_groups:
-                    chosen_groups.append(group_idx)
-                    for z_idx, z_pos in enumerate(zero_positions):
-                        if z_pos in best_groups[group_idx][0]:
-                            zeros_to_cover.discard(z_idx)
-
-        while zeros_to_cover:
-            best_group_idx = None
-            best_covered = set()
-            for group_idx, (group_cells, _) in enumerate(best_groups):
-                if group_idx in chosen_groups:
-                    continue
-                covered = set()
-                for z_idx in zeros_to_cover:
-                    if zero_positions[z_idx] in group_cells:
-                        covered.add(z_idx)
-                if len(covered) > len(best_covered):
-                    best_covered = covered
-                    best_group_idx = group_idx
-            if best_group_idx is None:
-                if verbose:
-                    print("Ошибка: не удалось покрыть все нули.")
+            if not all_zeros:
                 break
-            chosen_groups.append(best_group_idx)
-            zeros_to_cover -= best_covered
+        return cells, all_zeros
 
-        final_expr = set()
-        for group_idx in chosen_groups:
-            _, pattern = best_groups[group_idx]
-            term = []
-            for idx, bit in enumerate(pattern):
-                if bit == '0':
-                    term.append(self.labels[idx])
-                elif bit == '1':
-                    term.append(f'!{self.labels[idx]}')
-            if term:
-                if len(term) == 1:
-                    final_expr.add(term[0])
-                else:
-                    final_expr.add('(' + ' ∨ '.join(sorted(term)) + ')')
+    def make_pattern_1_to_4(self, cells):
+        pattern = ['-'] * self.var_count
+        values = []
+        for r, c in cells:
+            if self.var_count == 1:
+                values.append([c])
+            elif self.var_count == 2:
+                values.append([r, c])
+            elif self.var_count == 3:
+                yz = self.order[c]
+                values.append([r, (yz >> 1) & 1, yz & 1])
+            else:
+                xy = self.order[r]
+                zw = self.order[c]
+                values.append([(xy >> 1) & 1, xy & 1, (zw >> 1) & 1, zw & 1])
+        for i in range(self.var_count):
+            unique_vals = {val[i] for val in values}
+            if len(unique_vals) == 1:
+                pattern[i] = str(unique_vals.pop())
+        return pattern
 
-        final_expression = ""
-        expr_list = sorted(list(final_expr))
-        if len(expr_list) == 0:
-            final_expression = "1"
-        else:
-            for i in range(len(expr_list)):
-                final_expression += expr_list[i]
-                if i < len(expr_list) - 1:
-                    final_expression += " ∧ "
-        return final_expression
+    def find_groups_1_to_4(self, grid, r_max, c_max):
+        groups = []
+        row_sizes = [1, 2] if r_max <= 2 else [1, 2, 4]
+        col_sizes = [1, 2] if c_max == 2 else [1, 2, 4]
+        for r_size in row_sizes:
+            for c_size in col_sizes:
+                        cells, all_zeros = self.get_cells_1_to_4(grid, r_start, r_size, c_start, c_size, r_max, c_max)
+                        if all_zeros and cells:
+                            pattern = self.make_pattern_1_to_4(cells)
+                            groups.append((cells, pattern))
+        return groups
+
+    def get_zeros_pos_1_to_4(self, zeros):
+        positions = []
+        for p in zeros:
+            if self.var_count == 1:
+                positions.append((0, p[0]))
+            elif self.var_count == 2:
+                positions.append((p[0], p[1]))
+            elif self.var_count == 3:
+                positions.append((p[0], self.order.index((p[1] << 1) | p[2])))
+            else:
+                positions.append((self.order.index((p[0] << 1) | p[1]), self.order.index((p[2] << 1) | p[3])))
+        return positions
+
+    def karno_1_to_4_sknf(self, verbose=True):
+        if self.var_count not in [1, 2, 3, 4]:
+            return "Этот метод работает только для 1–4 переменных."
+        if verbose:
+            print(f"\nУпрощаем СКНФ через карту Карно ({self.var_count} переменных):")
+        grid, zeros = self.make_map_1_to_4()
+        if verbose:
+            self.show_map_1_to_4(grid)
+        if not zeros:
+            return "1"
+        r_max = 1 if self.var_count == 1 else 2 if self.var_count in [2, 3] else 4
+        c_max = 2 if self.var_count in [1, 2] else 4
+        groups = self.find_groups_1_to_4(grid, r_max, c_max)
+        big_groups = self.get_biggest_groups(groups)
+        zeros_pos = self.get_zeros_pos_1_to_4(zeros)
+        chosen = self.choose_groups(big_groups, zeros_pos, verbose)
+        return self.make_result(chosen, big_groups)
