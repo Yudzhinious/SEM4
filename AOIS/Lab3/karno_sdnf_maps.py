@@ -61,8 +61,6 @@ class KarnoSDNF(LogicalOperations):
         for db in range(b_size):
             block_index = (b_start + db) % b_max
             for dr in range(r_size):
-                row_index = (r_start + dr) % r_max
-                for dc in range(c_size):
                     column_index = (c_start + dc) % c_max
                     cells.add((block_index, row_index, column_index))
                     if grid[block_index][row_index][column_index] == 0:
@@ -103,14 +101,10 @@ class KarnoSDNF(LogicalOperations):
             for b_start in range(b_max):
                 if b_size > 1 and b_start != 0:
                     continue
-                for r_size in [1, 2, 4]:
-                    for c_size in [1, 2, 4]:
-                        for r_start in range(4):
-                            for c_start in range(4):
-                                cells, all_ones = self.get_cells_5_6(grid, b_start, b_size, r_start, r_size, c_start, c_size, b_max, 4, 4)
-                                if all_ones and cells:
-                                    pattern = self.make_pattern_5_6(cells)
-                                    groups.append((cells, pattern))
+                        cells, all_ones = self.get_cells_5_6(grid, b_start, b_size, r_start, r_size, c_start, c_size, b_max, 4, 4)
+                        if all_ones and cells:
+                            pattern = self.make_pattern_5_6(cells)
+                            groups.append((cells, pattern))
         return groups
 
     def get_biggest_groups(self, groups):
@@ -296,7 +290,6 @@ class KarnoSDNF(LogicalOperations):
         for r_size in row_sizes:
             for c_size in col_sizes:
                 for r_start in range(r_max):
-                    for c_start in range(c_max):
                         cells, all_ones = self.get_cells_1_to_4(grid, r_start, r_size, c_start, c_size, r_max, c_max)
                         if all_ones and cells:
                             pattern = self.make_pattern_1_to_4(cells)
